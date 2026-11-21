@@ -11,6 +11,19 @@ since OpenRGB doesn't support this board (USB `258a:010c`).
 - A local control panel at `http://127.0.0.1:8765` with a live preview: click, drag or type on it
   to send ripples across the real keyboard, pick your own colors, and adjust speed and brightness.
 
+![KreoSync control panel with Flow running: screen colors drift across a live preview of the Hive 65](docs/screenshots/flow.png)
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/custom-colors.png" alt="Rain effect with a custom palette of purple, pink and cyan, edited from the Colors panel"></td>
+    <td><img src="docs/screenshots/mirror.png" alt="Mirror effect copying a sunset onto the keys, with the minimum glow slider at 10%"></td>
+  </tr>
+  <tr>
+    <td align="center">Rain with your own colors</td>
+    <td align="center">Mirror copying a sunset onto the keys</td>
+  </tr>
+</table>
+
 ## Setup
 
 ```powershell
@@ -39,3 +52,7 @@ sends the verified per-LED frame (feature report 6); nothing is written to the k
 The keyboard's USB protocol and LED layout come from the reverse-engineering work in
 [kreo-hive65-rgb-suite](https://github.com/Arman-Bisht/kreo-hive65-rgb-suite/blob/main/PROTOCOL.md).
 This is an unofficial project, not affiliated with Kreo.
+
+## License
+
+[MIT](LICENSE)
