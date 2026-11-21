@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KreoSync</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Style: true-black flat (taste-skill app sheet, seed 2017241816). Elevation by lightness alone;
+     colour lives only on the keyboard preview, where it is the data. */
+  :root {
+    color-scheme: dark;
+    --ground: #000000;
+    --surface: #111111;
+    --raised: #2a2a2a;
+    --border: #1a1a1a;
+    --control: #444444;
+    --text: #ffffff;
+    --muted: #b4b4b4;
+    --faint: #949494;
+    --positive: #c6f24e;
+    --negative: #e5484d;
+    --warning: #e5a93b;
+    --radius-card: 20px;
+    --radius-inner: 12px;
+    --gap: 14px;
+    --pad: 22px;
+    --control-height: 36px;
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --font: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scrollbar-color: var(--control) var(--ground); }
+  body { margin: 0; background: var(--ground); color: var(--text); font: 400 14px/20px var(--font); -webkit-font-smoothing: antialiased; }
+  ::selection { background: var(--text); color: var(--ground); }
+  :focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+  button, input, select { font: inherit; color: inherit; }
+  h1, h2, p { margin: 0; }
+  [hidden] { display: none !important; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  svg.icon { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Top bar: product on the left, the device and its master switch on the right */
+  .bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 56px; padding: 0 29px; border-bottom: 1px solid var(--border); }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; }
+  .bar-right { display: flex; align-items: center; gap: 16px; height: 100%; }
+  .status { display: flex; align-items: center; gap: 8px; color: var(--muted); white-space: nowrap; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--control); flex: none; }
+  .status[data-kind="ok"] .dot { background: var(--positive); }
+  .status[data-kind="warn"] .dot { background: var(--warning); }
+  .status[data-kind="err"] .dot { background: var(--negative); }
+  .divider { width: 1px; align-self: stretch; background: var(--border); }
+  .switch-row { display: flex; align-items: center; gap: 10px; cursor: pointer; white-space: nowrap; }
+
+  .switch { appearance: none; position: relative; flex: none; width: 33px; height: 20px; margin: 0; border-radius: 999px; background: var(--control); cursor: pointer; transition: background-color 160ms ease; }
+  .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--muted); transition: transform 200ms var(--ease-out), background-color 160ms ease; }
+  .switch:checked { background: var(--positive); }
+  .switch:checked::after { transform: translateX(13px); background: var(--ground); }
+  .switch:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* Canvas */
+  main { max-width: 1180px; margin: 0 auto; padding: 32px 29px 56px; }
+  .title-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+  h1 { font-size: 20px; line-height: 28px; font-weight: 600; }
+  .summary { margin-top: 4px; color: var(--muted); font-size: 14px; }
+  .stamp { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; opacity: 0; transition: opacity 200ms ease; white-space: nowrap; }
+  .stamp.show { opacity: 1; }
+  .stamp[data-kind="err"] { color: var(--negative); }
+
+  /* The live keyboard: the screen's one question, answered by its biggest block */
+  .board { position: relative; padding: var(--pad); border-radius: var(--radius-card); background: var(--surface); }
+  .kb-scroll { overflow-x: auto; }
+  .kb { display: grid; grid-template-columns: repeat(64, minmax(0, 1fr)); grid-auto-rows: clamp(34px, 4.6vw, 54px); gap: 6px; touch-action: none; user-select: none; cursor: pointer; transition: opacity 200ms ease; }
+  .key {
+    --c: rgb(42 42 42);
+    display: flex; align-items: flex-end; padding: 0 8px 6px; overflow: hidden; white-space: nowrap;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--c) 80%, #161616);
+    color: rgb(255 255 255 / .85);
+    font-size: 11px; font-weight: 500; line-height: 1;
+    transition: background-color 70ms linear, transform 140ms var(--ease-out);
+  }
+  .key.light { color: rgb(0 0 0 / .72); }
+  .key.hit { transform: scale(0.94); transition-duration: 70ms, 60ms; }
+  @media (hover: hover) and (pointer: fine) { .key:hover { outline: 1px solid rgb(255 255 255 / .55); outline-offset: -1px; } }
+  .board-foot { margin-top: 14px; color: var(--faint); font-size: 12px; }
+  .board.idle .kb { opacity: .3; }
+  .idle-note { position: absolute; inset: var(--pad) var(--pad) 48px; display: none; place-items: center; text-align: center; font-weight: 500; pointer-events: none; }
+  .board.idle .idle-note { display: grid; }
+
+  /* Settings: label column beside its panel, rows split by a rule */
+  .settings { border: 0; margin: 28px 0 0; padding: 0; min-width: 0; }
+  .srow { display: grid; grid-template-columns: minmax(200px, 340px) 1fr; gap: var(--gap) 48px; padding: 28px 0; border-top: 1px solid var(--border); }
+  .srow:first-child { border-top: 0; padding-top: 4px; }
+  .slabel h2 { font-size: 16px; line-height: 24px; font-weight: 500; }
+  .slabel p { margin-top: 4px; color: var(--muted); max-width: 40ch; }
+  .spanel { display: grid; gap: 20px; padding: var(--pad); border-radius: var(--radius-card); background: var(--surface); }
+  .field-label { display: flex; justify-content: space-between; margin-bottom: 10px; font-weight: 500; }
+  .field-label output { font-weight: 400; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .seg { display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; padding: 3px; border-radius: 999px; background: var(--raised); justify-self: start; }
+  .seg input { position: absolute; opacity: 0; pointer-events: none; }
+  .seg label { min-width: 104px; padding: 7px 16px; border-radius: 999px; text-align: center; color: var(--muted); font-weight: 500; cursor: pointer; transition: background-color 160ms ease, color 160ms ease, transform 140ms var(--ease-out); }
+  .seg label:active { transform: scale(0.97); }
+  .seg input:checked + label { background: var(--text); color: var(--ground); }
+  .seg input:focus-visible + label { outline: 2px solid var(--text); outline-offset: 2px; }
+
+  input[type=range] { width: 100%; margin: 0; accent-color: #e6e6e6; cursor: pointer; }
+  select { height: var(--control-height); min-width: 220px; padding: 0 14px; border: 1px solid var(--control); border-radius: 999px; background: var(--surface); cursor: pointer; }
+
+  .swatches { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; min-height: 44px; }
+  .swatch { position: relative; width: 44px; height: 44px; border-radius: var(--radius-inner); transition: transform 140ms var(--ease-out); }
+  .swatch input[type=color] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+  .swatch:has(input:active) { transform: scale(0.95); }
+  .swatch:has(input:focus-visible) { outline: 2px solid var(--text); outline-offset: 2px; }
+  .swatch-cell { display: grid; justify-items: center; gap: 4px; }
+  .remove { display: grid; place-items: center; width: 44px; height: 22px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--faint); cursor: pointer; transition: color 160ms ease; }
+  @media (hover: hover) and (pointer: fine) { .remove:hover { color: var(--text); } }
+  .add { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px dashed var(--control); border-radius: var(--radius-inner); background: none; color: var(--muted); cursor: pointer; transition: color 160ms ease, border-color 160ms ease, transform 140ms var(--ease-out); }
+  .add:active, .button:active { transform: scale(0.97); }
+  @media (hover: hover) and (pointer: fine) { .add:hover { color: var(--text); border-color: var(--muted); } .button:hover { border-color: var(--muted); } }
+  .button { justify-self: start; height: var(--control-height); padding: 0 16px; border: 1px solid var(--control); border-radius: 999px; background: none; font-weight: 500; cursor: pointer; transition: border-color 160ms ease, transform 140ms var(--ease-out); }
+  .row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+  .hint { color: var(--faint); font-size: 12px; }
+  .settings:disabled { opacity: .45; }
+  .settings:disabled * { cursor: not-allowed; }
+
+  @media (max-width: 760px) {
+    .bar { padding: 0 16px; }
+    .switch-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    main { padding: 20px 16px 40px; }
+    .title-row { flex-direction: column; align-items: flex-start; }
+    .board { padding: 14px; }
+    .kb { gap: 3px; grid-auto-rows: 26px; }
+    .key, .key.light { padding: 0; color: transparent; border-radius: 5px; }  /* whole board fits; legends return on wider screens */
+    .idle-note { inset: 14px 14px 40px; padding: 0 12px; }
+    .srow { grid-template-columns: minmax(0, 1fr); }
+    .seg { justify-self: stretch; }
+    .seg label { min-width: 0; padding: 7px 10px; }
+    select { min-width: 0; width: 100%; }
+  }
+  @media (max-width: 420px) { #statusText { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); } }
+  @media (prefers-reduced-motion: reduce) {
+    .key, .swatch, .seg label, .add, .button { transition-property: background-color, color, border-color; }
+    .key.hit, .swatch:has(input:active), .seg label:active, .add:active, .button:active { transform: none; }
+  }
+</style>
+</head>
+<body>
+<header class="bar">
+  <div class="brand">
+    <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><g fill="#fff"><rect x="1" y="4" width="5.5" height="6" rx="1.5"/><rect x="8.25" y="4" width="5.5" height="6" rx="1.5"/><rect x="15.5" y="4" width="5.5" height="6" rx="1.5"/><rect x="1" y="12" width="5.5" height="6" rx="1.5"/><rect x="8.25" y="12" width="12.75" height="6" rx="1.5"/></g></svg>
+    KreoSync
+  </div>
+  <div class="bar-right">
+    <div class="status" id="status" role="status"><span class="dot"></span><span id="statusText">Connecting</span></div>
+    <span class="divider" aria-hidden="true"></span>
+    <label class="switch-row"><span class="switch-label">Lighting control</span><input class="switch" type="checkbox" id="enabled" disabled></label>
+  </div>
+</header>
+
+<main>
+  <div class="title-row">
+    <div>
+      <h1>Kreo Hive 65</h1>
+      <p class="summary" id="summary">Waiting for KreoSync…</p>
+    </div>
+    <p class="stamp" id="stamp"></p>
+    <p class="sr-only" id="announce" aria-live="polite"></p>
+  </div>
+
+  <section class="board" id="board" aria-labelledby="boardTitle">
+    <h2 class="sr-only" id="boardTitle">Live keyboard</h2>
+    <div class="kb-scroll"><div class="kb" id="kb" aria-describedby="boardHelp"></div></div>
+    <div class="idle-note" id="idleNote"></div>
+    <p class="board-foot" id="boardHelp">Click, drag or type to send a ripple across your keyboard.</p>
+  </section>
+
+  <fieldset class="settings" id="controls" disabled>
+    <legend class="sr-only">Lighting settings</legend>
+    <div class="srow">
+      <div class="slabel"><h2>Effect</h2><p>Flow drifts the colors across the board in slow waves. Rain drops them down the keys. Mirror copies your screen onto the keys, so bright parts glow and dark parts dim.</p></div>
+      <div class="spanel">
+        <div class="seg" role="radiogroup" aria-label="Effect">
+          <input type="radio" name="effect" id="fx-flow" value="flow"><label for="fx-flow">Flow</label>
+          <input type="radio" name="effect" id="fx-rain" value="rain"><label for="fx-rain">Rain</label>
+          <input type="radio" name="effect" id="fx-mirror" value="mirror"><label for="fx-mirror">Mirror</label>
+        </div>
+        <div id="speedField">
+          <label class="field-label" for="speed">Speed <output id="speedOut" for="speed"></output></label>
+          <input type="range" id="speed" min="0.1" max="3" step="0.05">
+        </div>
+        <div id="floorField">
+          <label class="field-label" for="floor">Minimum glow <output id="floorOut" for="floor"></output></label>
+          <input type="range" id="floor" min="0" max="0.4" step="0.01" aria-describedby="floorHint">
+          <p class="hint" id="floorHint" style="margin-top:8px">Dark parts of the screen never dim keys below this. Set to 0% to let them go fully dark.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="srow">
+      <div class="slabel"><h2>Colors</h2><p id="colorsHelp"></p></div>
+      <div class="spanel">
+        <div class="seg" role="radiogroup" aria-label="Color source" id="sourceSeg">
+          <input type="radio" name="source" id="src-screen" value="screen"><label for="src-screen">Your screen</label>
+          <input type="radio" name="source" id="src-custom" value="custom"><label for="src-custom">Your colors</label>
+        </div>
+        <div class="swatches" id="swatches" role="group" aria-label="Colors in use"></div>
+        <div class="row-actions" id="screenActions">
+          <select id="monitor" aria-label="Display to read colors from"></select>
+          <button class="button" type="button" id="keep">Keep these colors</button>
+        </div>
+        <p class="hint" id="customHint">Click a color to change it. Up to six.</p>
+      </div>
+    </div>
+
+    <div class="srow">
+      <div class="slabel"><h2>Brightness</h2><p>Colors run at full strength. Lower this to dim the whole board.</p></div>
+      <div class="spanel">
+        <div>
+          <label class="field-label" for="brightness">Brightness <output id="brightnessOut" for="brightness"></output></label>
+          <input type="range" id="brightness" min="0.05" max="1" step="0.01">
+        </div>
+      </div>
+    </div>
+  </fieldset>
+</main>
+
+<script>
+  // [label, LED column, width in key units, KeyboardEvent.code]; row index = LED row (PROTOCOL.md slot map)
+  const LAYOUT = [
+    [["Esc",0,1,"Escape"],["1",1,1,"Digit1"],["2",2,1,"Digit2"],["3",3,1,"Digit3"],["4",4,1,"Digit4"],["5",5,1,"Digit5"],["6",6,1,"Digit6"],["7",7,1,"Digit7"],["8",8,1,"Digit8"],["9",9,1,"Digit9"],["0",10,1,"Digit0"],["-",11,1,"Minus"],["=",12,1,"Equal"],["Backspace",13,2,"Backspace"],["Home",15,1,"Home"]],
+    [["Tab",0,1.5,"Tab"],["Q",1,1,"KeyQ"],["W",2,1,"KeyW"],["E",3,1,"KeyE"],["R",4,1,"KeyR"],["T",5,1,"KeyT"],["Y",6,1,"KeyY"],["U",7,1,"KeyU"],["I",8,1,"KeyI"],["O",9,1,"KeyO"],["P",10,1,"KeyP"],["[",11,1,"BracketLeft"],["]",12,1,"BracketRight"],["\\",13,1.5,"Backslash"],["Del",15,1,"Delete"]],
+    [["Caps",0,1.75,"CapsLock"],["A",1,1,"KeyA"],["S",2,1,"KeyS"],["D",3,1,"KeyD"],["F",4,1,"KeyF"],["G",5,1,"KeyG"],["H",6,1,"KeyH"],["J",7,1,"KeyJ"],["K",8,1,"KeyK"],["L",9,1,"KeyL"],[";",10,1,"Semicolon"],["'",11,1,"Quote"],["Enter",13,2.25,"Enter"],["PgUp",15,1,"PageUp"]],
+    [["Shift",0,2.25,"ShiftLeft"],["Z",1,1,"KeyZ"],["X",2,1,"KeyX"],["C",3,1,"KeyC"],["V",4,1,"KeyV"],["B",5,1,"KeyB"],["N",6,1,"KeyN"],["M",7,1,"KeyM"],[",",8,1,"Comma"],[".",9,1,"Period"],["/",10,1,"Slash"],["Shift",13,1.75,"ShiftRight"],["↑",14,1,"ArrowUp"],["PgDn",15,1,"PageDown"]],
+    [["Ctrl",0,1.25,"ControlLeft"],["Win",1,1.25,"MetaLeft"],["Alt",2,1.25,"AltLeft"],["",5,6.25,"Space"],["Alt",8,1,"AltRight"],["Fn",9,1,""],["Ctrl",10,1,"ControlRight"],["←",13,1,"ArrowLeft"],["↓",14,1,"ArrowDown"],["→",15,1,"ArrowRight"]],
+  ];
+  const NEXT_COLORS = ["#ff4d6d", "#ffb703", "#06d6a0", "#118ab2", "#f72585", "#4cc9f0", "#ff8c42", "#a7f432"];
+  const ICON = {
+    check: '<svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg>',
+    x: '<svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>',
+    plus: '<svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>',
+  };
+  const $ = id => document.getElementById(id);
+  const pct = v => `${Math.round(v * 100)}%`;
+  const fmt = { speed: v => `${(+v).toFixed(2)}×`, brightness: pct, floor: pct };
+  const SLIDERS = ["speed", "brightness", "floor"];
+  const THROTTLE_MS = 90;
+
+  let S = null;             // settings as this window shows them; re-read from the app whenever nothing is pending
+  let live = { connected: false, monitors: 2, palette: [] };
+  let online = false;
+  let resync = false;       // after a failed save, show what the app really has
+  let lastEdit = 0;         // when the user last changed something in this window
+  let swatchKey = "", swatchAt = 0;
+  let refocus = null;       // where focus goes once the controls have re-rendered
+
+  // ---- keyboard preview ----
+  const keys = [], byCode = {};
+  LAYOUT.forEach((row, r) => row.forEach(([label, c, units, code]) => {
+    const el = document.createElement("div");
+    el.className = "key";
+    el.textContent = label;
+    el.style.gridColumn = `span ${units * 4}`;
+    $("kb").appendChild(el);
+    const k = { el, r, c, light: false };
+    keys.push(k);
+    el._key = k;
+    if (code) byCode[code] = k;
+  }));
+
+  function hit(k) {
+    k.el.classList.remove("hit");
+    void k.el.offsetWidth;  // restart the press even on rapid repeats
+    k.el.classList.add("hit");
+    setTimeout(() => k.el.classList.remove("hit"), 140);
+    fetch("/api/touch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ x: k.c, y: k.r }) }).catch(() => {});
+  }
+
+  let dragPointer = null, lastKey = null;  // one finger or the mouse drives a drag; others are ignored
+  const keyAt = e => document.elementFromPoint(e.clientX, e.clientY)?.closest(".key")?._key;
+  $("kb").addEventListener("pointerdown", e => {
+    if (e.button !== 0 || dragPointer !== null) return;
+    const k = keyAt(e);
+    if (!k) return;
+    $("kb").setPointerCapture(e.pointerId);
+    dragPointer = e.pointerId; lastKey = k; hit(k);
+  });
+  $("kb").addEventListener("pointermove", e => {
+    if (e.pointerId !== dragPointer) return;
+    const k = keyAt(e);
+    if (k && k !== lastKey) { lastKey = k; hit(k); }
+  });
+  for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) {
+    $("kb").addEventListener(ev, e => { if (e.pointerId === dragPointer) { dragPointer = null; lastKey = null; } });
+  }
+
+  // Typing ripples that key on the real keyboard. A focused control keeps only the keys it uses.
+  const CONTROL_KEYS = new Set(["Space", "Enter", "NumpadEnter", "Tab", "Escape", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown"]);
+  const MODIFIER = /^(Control|Alt|Meta|Shift)(Left|Right)$/;
+  addEventListener("keydown", e => {
+    if (e.repeat || e.isComposing || e.keyCode === 229) return;
+    if (!MODIFIER.test(e.code) && (e.ctrlKey || e.altKey || e.metaKey)) return;  // shortcuts stay shortcuts
+    const t = e.target;
+    if (t.closest?.("select, input[type=color]")) return;  // these take typed keys themselves
+    if (t.closest?.("input, button") && CONTROL_KEYS.has(e.code)) return;
+    const k = byCode[e.code];
+    if (!k) return;
+    if (t === document.body && (e.code === "Space" || /^(Arrow|Page)/.test(e.code) || e.code === "Home")) e.preventDefault();
+    hit(k);
+  });
+
+  function paintKeys(grid) {
+    if (!grid.length) return;
+    for (const k of keys) {
+      const [r, g, b] = grid[k.r][k.c];
+      k.el.style.setProperty("--c", `rgb(${r} ${g} ${b})`);
+      // legend flips to dark ink on bright caps so it stays readable
+      const light = (0.2126 * r + 0.7152 * g + 0.0722 * b) * 0.8 + 4 > 150;
+      if (light !== k.light) { k.light = light; k.el.classList.toggle("light", light); }
+    }
+  }
+
+  // ---- saving: changes apply here at once, merge, and reach the app one request at a time, in order ----
+  let pending = {}, timer = null, inflight = false, lastSent = 0;
+  const hasPending = () => Object.keys(pending).length > 0;
+
+  function change(patch, immediate = false) {
+    Object.assign(S, patch);
+    Object.assign(pending, patch);
+    lastEdit = performance.now();
+    if ("source" in patch) swatchAt = 0;  // a new source shows its swatches at once
+    render();
+    if (inflight) return;  // goes out as soon as the request in flight finishes
+    const wait = immediate ? 0 : THROTTLE_MS - (performance.now() - lastSent);
+    if (wait <= 0) flush();
+    else if (!timer) timer = setTimeout(flush, wait);
+  }
+
+  async function flush() {
+    clearTimeout(timer);
+    timer = null;
+    if (!hasPending()) return;
+    const patch = pending;
+    pending = {};
+    inflight = true;
+    lastSent = performance.now();
+    try {
+      const r = await fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch), signal: AbortSignal.timeout(4000) });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(body.error || `the app answered ${r.status}`);
+      stamp("ok", "Saved");
+    } catch (e) {
+      const why = e.name === "TimeoutError" || e instanceof TypeError ? "KreoSync isn't answering" : e.message;
+      stamp("err", `Couldn't save: ${why}.`);
+      resync = true;
+    } finally {
+      inflight = false;
+      if (hasPending()) flush();
+    }
+  }
+
+  let stampTimer;
+  function stamp(kind, text) {
+    const el = $("stamp");
+    el.dataset.kind = kind;
+    el.innerHTML = kind === "ok" ? ICON.check : "";
+    el.append(Object.assign(document.createElement("span"), { textContent: text }));  // app text is data, never markup
+    el.classList.add("show");
+    clearTimeout(stampTimer);
+    if (kind === "ok") stampTimer = setTimeout(() => el.classList.remove("show"), 1600);
+    else {  // only problems are announced; clearing first makes a repeated error speak again
+      $("announce").textContent = "";
+      setTimeout(() => { $("announce").textContent = text; }, 50);
+    }
+  }
+
+  // ---- controls ----
+  function syncControls() {
+    $("enabled").checked = S.enabled;
+    for (const name of ["effect", "source"]) {
+      const radio = document.querySelector(`input[name=${name}][value=${S[name]}]`);
+      if (radio) radio.checked = true;
+    }
+    for (const k of SLIDERS) { $(k).value = S[k]; $(k + "Out").textContent = fmt[k](S[k]); }
+  }
+
+  $("enabled").addEventListener("change", e => change({ enabled: e.target.checked }, true));
+  document.querySelectorAll("input[name=effect]").forEach(el => el.addEventListener("change", () => change({ effect: el.value }, true)));
+  document.querySelectorAll("input[name=source]").forEach(el => el.addEventListener("change", () => change({ source: el.value }, true)));
+  for (const k of SLIDERS) {
+    $(k).addEventListener("input", e => { $(k + "Out").textContent = fmt[k](e.target.value); change({ [k]: +e.target.value }); });
+  }
+  $("monitor").addEventListener("change", e => change({ monitor: +e.target.value }, true));
+
+  const toHex = rgb => "#" + rgb.map(v => Math.round(v).toString(16).padStart(2, "0")).join("");  // taste-skill-ignore: hex digits, not numbering
+  const fullHex = c => { const m = Math.max(...c, 1); return toHex(c.map(v => v * 255 / m)); };  // as the keys show it
+  const keepable = () => (live.palette || []).filter(c => Math.max(...c) > 24).slice(0, 6).map(fullHex);
+  $("keep").addEventListener("click", () => {
+    const colors = keepable();
+    if (!colors.length) return;
+    $("src-custom").checked = true;
+    refocus = () => $("src-custom").focus();
+    change({ source: "custom", colors }, true);
+  });
+
+  function renderSwatches() {
+    const custom = S.source === "custom";
+    const list = custom ? S.colors : (live.palette || []).map(fullHex);
+    const key = (custom ? "c" : "s") + list.join();
+    if (key === swatchKey) return;
+    // live screen colors refresh at most once a second, so a screen reader keeps its place in the row
+    if (!custom && swatchKey[0] === "s" && performance.now() - swatchAt < 1000) return;
+    swatchKey = key;
+    swatchAt = performance.now();
+    const nodes = list.map((hex, i) => {
+      const sw = document.createElement("div");
+      sw.className = "swatch";
+      sw.style.background = hex;
+      if (!custom) { sw.setAttribute("role", "img"); sw.setAttribute("aria-label", `Screen color ${hex}`); return sw; }
+      const input = Object.assign(document.createElement("input"), { type: "color", value: hex });
+      input.setAttribute("aria-label", `Color ${i + 1}`);
+      input.addEventListener("input", () => {
+        const colors = [...S.colors];
+        colors[i] = input.value;
+        sw.style.background = input.value;
+        swatchKey = "c" + colors.join();  // keep the open picker: no rebuild for our own edit
+        change({ colors });
+      });
+      sw.appendChild(input);
+      const cell = document.createElement("div");
+      cell.className = "swatch-cell";
+      cell.appendChild(sw);
+      if (list.length > 1) {
+        const rm = Object.assign(document.createElement("button"), { type: "button", className: "remove", innerHTML: ICON.x });
+        rm.setAttribute("aria-label", `Remove color ${i + 1}`);
+        rm.addEventListener("click", () => {
+          const colors = S.colors.filter((_, j) => j !== i);
+          refocus = () => {
+            const removes = document.querySelectorAll("#swatches .remove");
+            (removes[Math.min(i, removes.length - 1)] || document.querySelector("#swatches input[type=color]"))?.focus();
+          };
+          change({ colors }, true);
+        });
+        cell.appendChild(rm);
+      }
+      return cell;
+    });
+    if (custom && list.length < 6) {
+      const add = Object.assign(document.createElement("button"), { type: "button", className: "add", innerHTML: ICON.plus });
+      add.setAttribute("aria-label", "Add a color");
+      add.addEventListener("click", () => {
+        refocus = () => [...document.querySelectorAll("#swatches input[type=color]")].pop()?.focus();
+        change({ colors: [...S.colors, NEXT_COLORS.find(c => !S.colors.includes(c)) || "#ffffff"] }, true);
+      });
+      nodes.push(add);
+    }
+    $("swatches").replaceChildren(...nodes);
+  }
+
+  function render() {
+    // status, summary and the idle note all come from the same state
+    let kind, status, summary, note = "";
+    const plugged = S && S.monitor < live.monitors;
+    const display = !S ? "" : S.monitor === 0 ? "all your displays"
+      : plugged ? `display ${S.monitor}` : `your main display (display ${S.monitor} is unplugged)`;
+    if (!online) {
+      [kind, status, summary, note] = ["err", "KreoSync isn't running", "Start KreoSync again by signing out and back in, or run kreosync.py.", "KreoSync isn't running"];
+    } else if (!S) {
+      [kind, status, summary] = ["", "Connecting", "Waiting for KreoSync…"];
+    } else if (!S.enabled) {
+      [kind, status, summary, note] = ["warn", "Kreo lighting", "Lighting control is off, so the keyboard shows its own Kreo lighting.", "Your keyboard is showing its own Kreo lighting"];
+    } else if (!live.connected) {
+      [kind, status, summary] = ["err", "Keyboard not found", "Plug the Hive 65 in with its cable and close the Kreo app."];
+    } else {
+      const n = S.colors.length;
+      const action = S.effect === "mirror" ? `Mirroring ${display}`
+        : `${S.effect === "flow" ? "Flowing" : "Raining"} ${S.source === "custom" ? `your ${n} color${n === 1 ? "" : "s"}` : `colors from ${display}`}`;
+      [kind, status, summary] = ["ok", "Connected", `${action} at ${fmt.brightness(S.brightness)} brightness.`];
+    }
+    $("status").dataset.kind = kind;
+    $("statusText").textContent = status;
+    $("summary").textContent = summary;
+    $("idleNote").textContent = note;
+    $("board").classList.toggle("idle", Boolean(note));
+    $("controls").disabled = !online || !S;
+    $("enabled").disabled = !online || !S;
+    if (!S) return;
+
+    const mirror = S.effect === "mirror";
+    const custom = S.source === "custom" && !mirror;  // mirror always reads the screen
+    $("speedField").hidden = mirror;
+    $("floorField").hidden = !mirror;
+    $("sourceSeg").hidden = mirror;
+    $("swatches").hidden = mirror;
+    $("keep").hidden = mirror || custom;
+    $("keep").disabled = !keepable().length;
+    $("screenActions").hidden = custom;
+    $("customHint").hidden = !custom;
+    $("colorsHelp").textContent = mirror
+      ? "Mirror takes each key's color and brightness from the part of the display above it."
+      : custom ? "Your own palette, spread evenly across the keys."
+      : "The most vivid colors on your display, read ten times a second.";
+    const count = Math.max(live.monitors, S.monitor + 1);
+    const sig = `${live.monitors}/${S.monitor}`;
+    if ($("monitor").dataset.sig !== sig) {  // rebuild only on a real change, never under an open list
+      $("monitor").dataset.sig = sig;
+      $("monitor").replaceChildren(...Array.from({ length: count }, (_, i) => new Option(
+        i === 0 ? "All displays" : i < live.monitors ? `Display ${i}` : `Display ${i} (unplugged)`, i)));
+      $("monitor").value = S.monitor;
+    }
+    if (!mirror) renderSwatches();
+    if (refocus) { const go = refocus; refocus = null; go(); }
+  }
+
+  const same = (a, b) => JSON.stringify(a, Object.keys(a).sort()) === JSON.stringify(b, Object.keys(b).sort());
+
+  async function tick() {
+    try {
+      const r = await fetch("/api/state", { cache: "no-store", signal: AbortSignal.timeout(2000) });
+      const st = await r.json();
+      if (!r.ok || !st.settings || !Array.isArray(st.grid) || !Array.isArray(st.palette)) throw new Error("no state");
+      const cameBack = !online;
+      online = true;
+      live = st;
+      const quiet = !inflight && !timer && !hasPending();
+      // adopt the app's settings when this window isn't mid-edit: first load, after a restart or a failed save
+      if (!S || (quiet && (cameBack || resync || performance.now() - lastEdit > 800) && !same(st.settings, S))) {
+        S = structuredClone(st.settings);
+        syncControls();
+      }
+      if (quiet) resync = false;
+      if (cameBack && $("stamp").dataset.kind === "err") $("stamp").classList.remove("show");
+      paintKeys(st.grid);
+    } catch {
+      online = false;
+    } finally {
+      try { render(); } catch (e) { console.error(e); }  // a render bug must never stop the polling
+      setTimeout(tick, online ? 50 : 1000);
+    }
+  }
+  tick();
+</script>
+</body>
+</html>
