@@ -1,7 +1,7 @@
 """KreoSync: screen-reactive ambient lighting for the Kreo Hive 65 (USB 258a:010c).
 
-Inspired by LumiSync, but instead of one color it pulls a palette of the vivid colors
-on screen and animates them evenly across the keyboard. Talks to the board directly
+It pulls a palette of the vivid colors on screen and animates them evenly across the
+keyboard. Talks to the board directly
 over USB HID (OpenRGB doesn't support it). Protocol source:
 https://github.com/Arman-Bisht/kreo-hive65-rgb-suite/blob/main/PROTOCOL.md
 

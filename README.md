@@ -1,8 +1,7 @@
 # KreoSync
 
-Screen-reactive ambient lighting for the **Kreo Hive 65** keyboard on Windows. Inspired by
-[LumiSync](https://github.com/Gxmi2006/LumiSync), but it talks to the keyboard directly over USB HID,
-since OpenRGB doesn't support this board (USB `258a:010c`).
+Screen-reactive ambient lighting for the **Kreo Hive 65** keyboard on Windows. It talks to the
+keyboard directly over USB HID, since OpenRGB doesn't support this board (USB `258a:010c`).
 
 - **Flow**: the vivid colors on your screen drift across the keys in slow waves.
 - **Rain**: drops in your screen's colors fall down the keys and splash on the bottom row.
